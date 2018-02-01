@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -x
 
 ## Version 2.0.0
 ##
@@ -14,6 +14,7 @@ ELECTRONVER=1.7.8
 NODEJSVER=5.1.1
 
 OS="${1}"
+TRAVIS_OS_NAME=${TRAVIS_OS_NAME:=$OS}
 if [ -z "${2}" ]; then
 SERVERTAG='latest'
 else
@@ -140,7 +141,7 @@ case "$TRAVIS_OS_NAME" in
 
     ;;
 
-  "osx")
+  "windows")
 
     brew update
     brew install jq
@@ -179,7 +180,7 @@ case "$TRAVIS_OS_NAME" in
     mv dist/win32/OpenBazaar2Setup.exe dist/win32/OpenBazaar2-$PACKAGE_VERSION-Setup-32.exe
     mv dist/win64/RELEASES dist/win32/RELEASES
 
-    #### CLIENT ONLY
+  #### CLIENT ONLY
     echo 'Running Electron Packager...'
     electron-packager . OpenBazaar2Client --asar --out=dist --protocol-name=OpenBazaar --win32metadata.ProductName="OpenBazaar2Client" --win32metadata.CompanyName="OpenBazaar" --win32metadata.FileDescription='Decentralized p2p marketplace for Bitcoin' --win32metadata.OriginalFilename=OpenBazaar2Client.exe --protocol=ob --platform=win32 --arch=ia32 --icon=imgs/openbazaar2.ico --electron-version=${ELECTRONVER} --overwrite
 
@@ -222,7 +223,29 @@ case "$TRAVIS_OS_NAME" in
     signcode -t http://timestamp.digicert.com -a sha1 -spc .travis/ob1.cert.spc -pvk .travis/ob1.pvk -n "OpenBazaar $PACKAGE_VERSION" dist/win64/OpenBazaar2-$PACKAGE_VERSION-Setup-64.exe
     signcode -t http://timestamp.digicert.com -a sha1 -spc .travis/ob1.cert.spc -pvk .travis/ob1.pvk -n "OpenBazaarClient $PACKAGE_VERSION" dist/win64/OpenBazaar2Client-$PACKAGE_VERSION-Setup-64.exe
 
+    ;;
+
     # OSX
+  "osx")
+
+    brew update
+    brew install jq
+    curl -L https://dl.bintray.com/develar/bin/7za -o /tmp/7za
+    chmod +x /tmp/7za
+    curl -L https://dl.bintray.com/develar/bin/wine.7z -o /tmp/wine.7z
+    /tmp/7za x -o/usr/local/Cellar -y /tmp/wine.7z
+
+    brew link --overwrite fontconfig gd gnutls jasper libgphoto2 libicns libtasn1 libusb libusb-compat little-cms2 nettle openssl sane-backends webp wine git-lfs gnu-tar dpkg xz
+    brew install freetype graphicsmagick
+    brew link xz
+    brew install mono
+
+    # Retrieve Latest Server Binaries
+    cd temp/
+    curl -u $GITHUB_USER:$GITHUB_TOKEN -s https://api.github.com/repos/OpenBazaar/openbazaar-go/releases/$SERVERTAG > release.txt
+    cat release.txt | jq -r ".assets[].browser_download_url" | xargs -n 1 curl -L -O
+    cd ..
+
     echo 'Building OSX Installer'
     mkdir dist/osx
 
